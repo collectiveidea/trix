@@ -212,6 +212,9 @@ export const makeElement = function(tag, options = {}) {
     })
   }
 
+  if (Object.hasOwn(options, "draggable")) {
+    element.draggable = options.draggable
+  }
   return element
 }
 
