@@ -18,6 +18,7 @@ export default class PreviewableAttachmentView extends AttachmentView {
       data: {
         trixMutable: true,
       },
+      draggable: false,
     })
 
     this.refresh(this.image)
