@@ -25,6 +25,7 @@ export default class AttachmentView extends ObjectView {
       className: this.getClassName(),
       data: this.getData(),
       editable: false,
+      draggable: true,
     })
 
     const href = this.getHref()
