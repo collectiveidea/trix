@@ -33,14 +33,20 @@ const pieceForAttachment = (attachment, attributes = {}) => {
   return { attachment, attributes, type }
 }
 
-const blockForAttributes = (attributes = {}) => {
+const blockForAttributes = (attributes = {}, htmlAttributes = {}) => {
   const text = []
-  return { text, attributes }
+  return { text, attributes, htmlAttributes }
 }
 
 const parseTrixDataAttribute = (element, name) => {
   try {
-    return JSON.parse(element.getAttribute(`data-trix-${name}`))
+    const data = JSON.parse(element.getAttribute(`data-trix-${name}`))
+
+    if (data.contentType === "text/html" && data.content) {
+      data.content = HTMLSanitizer.sanitize(data.content).getHTML()
+    }
+
+    return data
   } catch (error) {
     return {}
   }
@@ -133,8 +139,9 @@ export default class HTMLParser extends BasicObject {
       return this.appendStringWithAttributes("\n")
     } else if (element === this.containerElement || this.isBlockElement(element)) {
       const attributes = this.getBlockAttributes(element)
+      const htmlAttributes = this.getBlockHTMLAttributes(element)
       if (!arraysAreEqual(attributes, this.currentBlock?.attributes)) {
-        this.currentBlock = this.appendBlockForAttributesWithElement(attributes, element)
+        this.currentBlock = this.appendBlockForAttributesWithElement(attributes, element, htmlAttributes)
         this.currentBlockElement = element
       }
     }
@@ -147,9 +154,10 @@ export default class HTMLParser extends BasicObject {
     if (elementIsBlockElement && !this.isBlockElement(element.firstChild)) {
       if (!this.isInsignificantTextNode(element.firstChild) || !this.isBlockElement(element.firstElementChild)) {
         const attributes = this.getBlockAttributes(element)
+        const htmlAttributes = this.getBlockHTMLAttributes(element)
         if (element.firstChild) {
           if (!(currentBlockContainsElement && arraysAreEqual(attributes, this.currentBlock.attributes))) {
-            this.currentBlock = this.appendBlockForAttributesWithElement(attributes, element)
+            this.currentBlock = this.appendBlockForAttributesWithElement(attributes, element, htmlAttributes)
             this.currentBlockElement = element
           } else {
             return this.appendStringWithAttributes("\n")
@@ -233,9 +241,9 @@ export default class HTMLParser extends BasicObject {
 
   // Document construction
 
-  appendBlockForAttributesWithElement(attributes, element) {
+  appendBlockForAttributesWithElement(attributes, element, htmlAttributes = {}) {
     this.blockElements.push(element)
-    const block = blockForAttributes(attributes)
+    const block = blockForAttributes(attributes, htmlAttributes)
     this.blocks.push(block)
     return block
   }
@@ -348,6 +356,20 @@ export default class HTMLParser extends BasicObject {
       element = element.parentNode
     }
     return attributes.reverse()
+  }
+
+  getBlockHTMLAttributes(element) {
+    const attributes = {}
+    const blockConfig = Object.values(config.blockAttributes).find(settings => settings.tagName === tagName(element))
+    const allowedAttributes = blockConfig?.htmlAttributes || []
+
+    allowedAttributes.forEach((attribute) => {
+      if (element.hasAttribute(attribute)) {
+        attributes[attribute] = element.getAttribute(attribute)
+      }
+    })
+
+    return attributes
   }
 
   findBlockElementAncestors(element) {
